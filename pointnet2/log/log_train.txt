@@ -1,0 +1,4 @@
+Namespace(batch_size=16, decay_rate=0.7, decay_step=200000, gpu=0, learning_rate=0.001, log_dir='log', max_epoch=251, model='pointnet2_cls_ssg', momentum=0.9, normal=False, num_point=1024, optimizer='adam')
+pid: 278
+**** EPOCH 000 ****
+2018-10-30 16:57:47.535904
