@@ -33,23 +33,6 @@ parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate fo
 parser.add_argument('--run_mode', default='normal', help='Run mode [default: normal]')
 FLAGS = parser.parse_args()
 
-GPU_INDEX = FLAGS.gpu
-
-#MAX_NUM_POINT = 2048
-HOSTNAME = socket.gethostname()
-
-# ModelNet40 official train/test split
-TRAIN_FILES = provider.getDataFiles( \
-    os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/train_files.txt'))
-TEST_FILES = provider.getDataFiles(\
-    os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/test_files.txt'))
-
-#LOG_DIR = FLAGS.log_dir
-#if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
-LOG_DIR = createLogDir(FLAGS.log_dir)
-
-LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
-LOG_FOUT.write(str(FLAGS)+'\n')
 
 def createLogDir(LOG_DIR):
     '''Always create a new logdir to prevent overwriting'''
@@ -69,6 +52,24 @@ def createLogDir(LOG_DIR):
         LOG_DIR = new_log_dir
     return LOG_DIR
 
+
+GPU_INDEX = FLAGS.gpu
+
+#MAX_NUM_POINT = 2048
+HOSTNAME = socket.gethostname()
+
+# ModelNet40 official train/test split
+TRAIN_FILES = provider.getDataFiles( \
+    os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/train_files.txt'))
+TEST_FILES = provider.getDataFiles(\
+    os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/test_files.txt'))
+
+#LOG_DIR = FLAGS.log_dir
+#if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
+LOG_DIR = createLogDir(FLAGS.log_dir)
+
+LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
+LOG_FOUT.write(str(FLAGS)+'\n')
 
 
 def get_running_time(start_time):
