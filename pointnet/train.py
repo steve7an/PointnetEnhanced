@@ -30,8 +30,26 @@ parser.add_argument('--momentum', type=float, default=0.9, help='Initial learnin
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=200000, help='Decay step for lr decay [default: 200000]')
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.7]')
+parser.add_argument('--run_mode', default='normal', help='Run mode [default: normal]')
 FLAGS = parser.parse_args()
 
+GPU_INDEX = FLAGS.gpu
+
+#MAX_NUM_POINT = 2048
+HOSTNAME = socket.gethostname()
+
+# ModelNet40 official train/test split
+TRAIN_FILES = provider.getDataFiles( \
+    os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/train_files.txt'))
+TEST_FILES = provider.getDataFiles(\
+    os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/test_files.txt'))
+
+LOG_DIR = FLAGS.log_dir
+if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
+#LOG_DIR = createLogDir(FLAGS.log_dir)
+
+LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
+LOG_FOUT.write(str(FLAGS)+'\n')
 
 def createLogDir(LOG_DIR):
     '''Always create a new logdir to prevent overwriting'''
@@ -304,13 +322,13 @@ def hyperOptMain():
     #('--optimizer', default='adam', help='adam or momentum [default: adam]')
     #('--decay_step', type=int, default=200000, help='Decay step for lr decay [default: 200000]
     space = {
-        'num_points': hp.choice('param1',[256,512,1024,2048]),
-        'batch_size': hp.choice('param2',[2,4,8,16,32]),
-        'learning_rate': hp.uniform('param3', 0.01, 0.001),
-        'momentum': hp.uniform('param4',0.1, 0.9),
-        'optimizer': hp.choice('param5',['adam','momentum']),
-        'decay_step': hp.uniform('param6',10000, 200000),
-        'decay_rate': hp.uniform('param7',0.1, 0.7)
+        'num_points': hp.choice('num_points',[256,512,1024,2048]),
+        'batch_size': hp.choice('batch_size',[2,4,8,16,32]),
+        'learning_rate': hp.uniform('learning_rate', 0.01, 0.001),
+        'momentum': hp.uniform('momentum',0.1, 0.9),
+        'optimizer': hp.choice('optimizer',['adam','momentum']),
+        'decay_step': hp.uniform('decay_step',10000, 200000),
+        'decay_rate': hp.uniform('decay_rate',0.1, 0.7)
     }
     max_evals = 3
     trials = Trials()
@@ -323,24 +341,6 @@ def hyperOptMain():
     print (best)
 
 
-GPU_INDEX = FLAGS.gpu
-
-#MAX_NUM_POINT = 2048
-HOSTNAME = socket.gethostname()
-
-# ModelNet40 official train/test split
-TRAIN_FILES = provider.getDataFiles( \
-    os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/train_files.txt'))
-TEST_FILES = provider.getDataFiles(\
-    os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/test_files.txt'))
-
-LOG_DIR = FLAGS.log_dir
-if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
-#LOG_DIR = createLogDir(FLAGS.log_dir)
-
-LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
-LOG_FOUT.write(str(FLAGS)+'\n')
-
 def main(params=[]):
     gparams = dict()
     if params:
@@ -351,7 +351,7 @@ def main(params=[]):
         gparams['MOMENTUM'] = params['momentum']
         gparams['OPTIMIZER'] = params['optimizer']
         gparams['DECAY_STEP']  = params['decay_step']
-        gparams['MAX_EPOCH'] = 3
+        gparams['MAX_EPOCH'] = 1
         gparams['DECAY_RATE'] = params['decay_rate']
     else:
         gparams['BATCH_SIZE'] = FLAGS.batch_size        
@@ -365,13 +365,7 @@ def main(params=[]):
 
     gparams['BN_DECAY_DECAY_STEP'] = float(gparams['DECAY_STEP'])
 
-    print("14:Batch size:{} and Num point:{}".format(gparams['BATCH_SIZE'],gparams['NUM_POINT']))
-
-    #BATCH_SIZE = FLAGS.batch_size
-    #NUM_POINT = FLAGS.num_point
-    #MOMENTUM = FLAGS.momentum
-    #OPTIMIZER = FLAGS.optimizer
-    #DECAY_STEP = FLAGS.decay_step
+   # print("15:Batch size:{} and Num point:{}".format(gparams['BATCH_SIZE'],gparams['NUM_POINT']))
 
     
     gparams['MODEL'] = importlib.import_module(FLAGS.model) # import network module
@@ -384,9 +378,15 @@ def main(params=[]):
     start_time = time.time()
     result = train(gparams)
     print("--- Total running time for MAIN : %s ---" % (get_running_time(start_time)))
-    LOG_FOUT.close()
     return result
 
+
+
 if __name__ == "__main__":
-    #main()
-    hyperOptMain()
+    print ("Starting the run with the mode:{}".format(FLAGS.run_mode))
+    if FLAGS.run_mode == "normal":
+        main()
+    else:
+        hyperOptMain()
+    
+    LOG_FOUT.close()
