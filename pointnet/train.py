@@ -44,9 +44,9 @@ TRAIN_FILES = provider.getDataFiles( \
 TEST_FILES = provider.getDataFiles(\
     os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/test_files.txt'))
 
-LOG_DIR = FLAGS.log_dir
-if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
-#LOG_DIR = createLogDir(FLAGS.log_dir)
+#LOG_DIR = FLAGS.log_dir
+#if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
+LOG_DIR = createLogDir(FLAGS.log_dir)
 
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS)+'\n')
