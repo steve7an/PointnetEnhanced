@@ -368,7 +368,6 @@ def main(params=[]):
     gparams['BN_DECAY_DECAY_STEP'] = float(gparams['DECAY_STEP'])
 
     if params:
-        print ("Starting hyperopt")
         gparams['BATCH_SIZE'] = params['batch_size']
         #gparams['NUM_POINT'] = params['num_points']
         #gparams['BASE_LEARNING_RATE'] = params['learning_rate']
@@ -399,8 +398,10 @@ def main(params=[]):
 if __name__ == "__main__":
     print ("Starting the run with the mode:{}".format(FLAGS.run_mode))
     if FLAGS.run_mode == "normal":
+        log_string ("Starting normal run")
         main()
     else:
+        log_string ("Starting hyperopt")
         hyperOptMain()
     
     LOG_FOUT.close()
