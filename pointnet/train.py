@@ -10,6 +10,8 @@ import sys
 import time, datetime
 import pickle
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from shutil import copy
+
 #BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
 BASE_DIR = ''
 sys.path.append(BASE_DIR)
@@ -195,7 +197,7 @@ def train(gparams):
             start_time = time.time() 
             train_one_epoch(sess, ops, train_writer, gparams)
             mean_loss,accuracy, avg_class_accuracy = eval_one_epoch(sess, ops, test_writer, gparams)
-            print("--- Total running time for EPOCH %03d : %s ---" % (epoch, get_running_time(start_time)))
+            log_string("--- Total running time for EPOCH %03d : %s ---" % (epoch, get_running_time(start_time)))
 
             # Save the variables to disk.
             if epoch % 10 == 0:
@@ -293,6 +295,7 @@ def eval_one_epoch(sess, ops, test_writer, gparams):
                          ops['is_training_pl']: is_training}
             summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'],
                 ops['loss'], ops['pred']], feed_dict=feed_dict)
+            test_writer.add_summary(summary, step)
             pred_val = np.argmax(pred_val, 1)
             correct = np.sum(pred_val == current_label[start_idx:end_idx])
             total_correct += correct
@@ -339,7 +342,7 @@ def hyperOptMain():
         max_evals=max_evals,
         trials=trials)
 
-    print (best)
+    log_string (best)
 
 
 def main(params=[]):
@@ -352,7 +355,7 @@ def main(params=[]):
         gparams['MOMENTUM'] = params['momentum']
         gparams['OPTIMIZER'] = params['optimizer']
         gparams['DECAY_STEP']  = params['decay_step']
-        gparams['MAX_EPOCH'] = 1
+    #    gparams['MAX_EPOCH'] = 100
         gparams['DECAY_RATE'] = params['decay_rate']
     else:
         gparams['BATCH_SIZE'] = FLAGS.batch_size        
@@ -361,9 +364,9 @@ def main(params=[]):
         gparams['MOMENTUM'] = FLAGS.momentum
         gparams['OPTIMIZER'] = FLAGS.optimizer
         gparams['DECAY_STEP'] = FLAGS.decay_step
-        gparams['MAX_EPOCH'] = FLAGS.max_epoch
         gparams['DECAY_RATE'] = FLAGS.decay_rate
 
+    gparams['MAX_EPOCH'] = FLAGS.max_epoch
     gparams['BN_DECAY_DECAY_STEP'] = float(gparams['DECAY_STEP'])
 
    # print("15:Batch size:{} and Num point:{}".format(gparams['BATCH_SIZE'],gparams['NUM_POINT']))
@@ -372,13 +375,15 @@ def main(params=[]):
     gparams['MODEL'] = importlib.import_module(FLAGS.model) # import network module
     gparams['MODEL_FILE'] = os.path.join(BASE_DIR, 'models', FLAGS.model+'.py')
 
-    os.system('cp "%s" "%s"' % (gparams['MODEL_FILE'], LOG_DIR)) # bkp of model def
-    os.system('cp train.py "%s"' % (LOG_DIR)) # bkp of train procedure
+    copy(gparams['MODEL_FILE'], LOG_DIR)
+    copy("train.py", LOG_DIR)
+    #os.system('cp "%s" "%s"' % (gparams['MODEL_FILE'], LOG_DIR)) # bkp of model def
+    #os.system('cp train.py "%s"' % (LOG_DIR)) # bkp of train procedure
 
 
     start_time = time.time()
     result = train(gparams)
-    print("--- Total running time for MAIN : %s ---" % (get_running_time(start_time)))
+    log_string("--- Total running time for MAIN : %s ---" % (get_running_time(start_time)))
     return result
 
 
