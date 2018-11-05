@@ -11,6 +11,8 @@ import time, datetime
 import pickle
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from shutil import copy
+from hyperopt.mongoexp import MongoTrials
+import uuid
 
 #BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
 BASE_DIR = ''
@@ -33,6 +35,8 @@ parser.add_argument('--optimizer', default='adam', help='adam or momentum [defau
 parser.add_argument('--decay_step', type=int, default=200000, help='Decay step for lr decay [default: 200000]')
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.7]')
 parser.add_argument('--run_mode', default='normal', help='Run mode [default: normal]')
+parser.add_argument('--mongo_mode', type=int, default=0, help='HyperOpt Mongo Parallel mode [default: 0]')
+
 FLAGS = parser.parse_args()
 
 
@@ -326,16 +330,21 @@ def hyperOptMain():
     #('--optimizer', default='adam', help='adam or momentum [default: adam]')
     #('--decay_step', type=int, default=200000, help='Decay step for lr decay [default: 200000]
     space = {
-        'num_points': hp.choice('num_points',[256,512,1024,2048]),
+        #'num_points': hp.choice('num_points',[256,512,1024,2048]),
         'batch_size': hp.choice('batch_size',[2,4,8,16,32]),
-        'learning_rate': hp.uniform('learning_rate', 0.01, 0.001),
-        'momentum': hp.uniform('momentum',0.1, 0.9),
-        'optimizer': hp.choice('optimizer',['adam','momentum']),
-        'decay_step': hp.uniform('decay_step',10000, 200000),
-        'decay_rate': hp.uniform('decay_rate',0.1, 0.7)
+        #'learning_rate': hp.uniform('learning_rate', 0.01, 0.001),
+        #'momentum': hp.uniform('momentum',0.1, 0.9),
+        #'optimizer': hp.choice('optimizer',['adam','momentum']),
+        #'decay_step': hp.uniform('decay_step',10000, 200000),
+        #'decay_rate': hp.uniform('decay_rate',0.1, 0.7)
     }
     max_evals = 3
+
     trials = Trials()
+    if FLAGS.mongo_mode==1:
+        trials = MongoTrials('mongo://localhost:27017/hyperopt/jobs', exp_key='exp{}'.format(uuid.uuid4()))
+
+
     best = fmin(main,
         space=space,
         algo=tpe.suggest,
@@ -347,27 +356,26 @@ def hyperOptMain():
 
 def main(params=[]):
     gparams = dict()
+
+    gparams['BATCH_SIZE'] = FLAGS.batch_size        
+    gparams['NUM_POINT'] = FLAGS.num_point
+    gparams['BASE_LEARNING_RATE'] = FLAGS.learning_rate
+    gparams['MOMENTUM'] = FLAGS.momentum
+    gparams['OPTIMIZER'] = FLAGS.optimizer
+    gparams['DECAY_STEP'] = FLAGS.decay_step
+    gparams['DECAY_RATE'] = FLAGS.decay_rate
+    gparams['MAX_EPOCH'] = FLAGS.max_epoch
+    gparams['BN_DECAY_DECAY_STEP'] = float(gparams['DECAY_STEP'])
+
     if params:
         print ("Starting hyperopt")
         gparams['BATCH_SIZE'] = params['batch_size']
-        gparams['NUM_POINT'] = params['num_points']
-        gparams['BASE_LEARNING_RATE'] = params['learning_rate']
-        gparams['MOMENTUM'] = params['momentum']
-        gparams['OPTIMIZER'] = params['optimizer']
-        gparams['DECAY_STEP']  = params['decay_step']
-    #    gparams['MAX_EPOCH'] = 100
-        gparams['DECAY_RATE'] = params['decay_rate']
-    else:
-        gparams['BATCH_SIZE'] = FLAGS.batch_size        
-        gparams['NUM_POINT'] = FLAGS.num_point
-        gparams['BASE_LEARNING_RATE'] = FLAGS.learning_rate
-        gparams['MOMENTUM'] = FLAGS.momentum
-        gparams['OPTIMIZER'] = FLAGS.optimizer
-        gparams['DECAY_STEP'] = FLAGS.decay_step
-        gparams['DECAY_RATE'] = FLAGS.decay_rate
-
-    gparams['MAX_EPOCH'] = FLAGS.max_epoch
-    gparams['BN_DECAY_DECAY_STEP'] = float(gparams['DECAY_STEP'])
+        #gparams['NUM_POINT'] = params['num_points']
+        #gparams['BASE_LEARNING_RATE'] = params['learning_rate']
+        #gparams['MOMENTUM'] = params['momentum']
+        #gparams['OPTIMIZER'] = params['optimizer']
+        #gparams['DECAY_STEP']  = params['decay_step']
+        #gparams['DECAY_RATE'] = params['decay_rate']
 
    # print("15:Batch size:{} and Num point:{}".format(gparams['BATCH_SIZE'],gparams['NUM_POINT']))
 
