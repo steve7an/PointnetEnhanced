@@ -36,6 +36,7 @@ parser.add_argument('--decay_step', type=int, default=200000, help='Decay step f
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.7]')
 parser.add_argument('--run_mode', default='normal', help='Run mode [default: normal]')
 parser.add_argument('--mongo_mode', type=int, default=0, help='HyperOpt Mongo Parallel mode [default: 0]')
+parser.add_argument('--max_evals', type=int, default=3, help='HyperOpt max evaluations to run [default: 3]')
 
 FLAGS = parser.parse_args()
 
@@ -347,7 +348,7 @@ def eval_one_epoch(sess, ops, test_writer, gparams):
     return mean_loss, accuracy, avg_class_accuracy
 
 
-def hyperOptMain():
+def hyperOptMain(max_evals):
     '''Run the training using hyper optimization'''
     #('--num_point', type=int, default=1024, help='Point Number [256/512/1024/2048] [default: 1024]')
     #('--max_epoch', type=int, default=250, help='Epoch to run [default: 250]')
@@ -365,7 +366,7 @@ def hyperOptMain():
         #'decay_step': hp.uniform('decay_step',10000, 200000),
         #'decay_rate': hp.uniform('decay_rate',0.1, 0.7)
     }
-    max_evals = 3
+    #max_evals = 3
 
     trials = Trials()
     if FLAGS.mongo_mode==1:
@@ -379,6 +380,9 @@ def hyperOptMain():
         trials=trials)
 
     log_string (best)
+
+    for trial in trials.trials:
+        log_string(trial)
 
 
 def main(params=[]):
@@ -430,6 +434,6 @@ if __name__ == "__main__":
         main()
     else:
         log_string ("Starting hyperopt")
-        hyperOptMain()
+        hyperOptMain(FLAGS.max_evals)
     
    # LOG_FOUT.close()
