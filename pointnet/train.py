@@ -72,6 +72,7 @@ GPU_INDEX = FLAGS.gpu
 
 #MAX_NUM_POINT = 2048
 HOSTNAME = socket.gethostname()
+MODEL_FILE_NAME = "model.ckpt"
 
 # ModelNet40 official train/test split
 TRAIN_FILES = provider.getDataFiles( \
@@ -183,9 +184,12 @@ def train(gparams):
 
         # Restore variables from disk.
         if MODEL_PATH:
-            saver.restore(sess, MODEL_PATH)
+            metaFilePath = os.path.join(MODEL_PATH,"{}.meta".format(MODEL_FILE_NAME))
+            #saver = tf.train.import_meta_graph(metaFilePath)
+            #saver.restore(sess, os.path.join(MODEL_PATH,MODEL_FILE_NAME))
+            saver.restore(sess, tf.train.latest_checkpoint(MODEL_PATH))
             log_string("Model restored.")
-
+            
         # Add summary writers
         #merged = tf.merge_all_summaries()
         merged = tf.summary.merge_all()
@@ -225,7 +229,7 @@ def train(gparams):
 
             # Save the variables to disk.
             if epoch % 10 == 0:
-                save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"))
+                save_path = saver.save(sess, os.path.join(LOG_DIR, MODEL_FILE_NAME))
                 log_string("Model saved in file: %s" % save_path)
                 #force write to drive
                 LOG_FOUT.close()
