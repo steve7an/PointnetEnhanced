@@ -37,6 +37,8 @@ parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate fo
 parser.add_argument('--run_mode', default='normal', help='Run mode [default: normal]')
 parser.add_argument('--mongo_mode', type=int, default=0, help='HyperOpt Mongo Parallel mode [default: 0]')
 parser.add_argument('--max_evals', type=int, default=3, help='HyperOpt max evaluations to run [default: 3]')
+parser.add_argument('--model_path', default='', help='model checkpoint file path to restore interrupted training [default: blank]')
+
 
 FLAGS = parser.parse_args()
 
@@ -82,6 +84,8 @@ LOG_DIR = FLAGS.log_dir
 LOG_DIR = createLogDir(LOG_DIR)
 LOG_FILE_PATH =os.path.join(LOG_DIR, 'log_train.txt')
 LOG_FOUT = open(LOG_FILE_PATH, 'w')
+
+MODEL_PATH = FLAGS.model_path
 
 
 def get_running_time(start_time):
@@ -177,6 +181,11 @@ def train(gparams):
         config.log_device_placement = False
         sess = tf.Session(config=config)
 
+        # Restore variables from disk.
+        if MODEL_PATH:
+            saver.restore(sess, MODEL_PATH)
+            log_string("Model restored.")
+
         # Add summary writers
         #merged = tf.merge_all_summaries()
         merged = tf.summary.merge_all()
@@ -234,8 +243,8 @@ def train(gparams):
             'eval_time': time.time(),
             'Evaluate other params': {'accuracy': accuracy, 'avg_class_accuracy': avg_class_accuracy},
             # -- attachments are handled differently
-            'attachments':
-            {'time_module': pickle.dumps(time.time)}
+            #'attachments':
+            #{'time_module': pickle.dumps(time.time)}
         }
 
 
@@ -368,7 +377,12 @@ def hyperOptMain(max_evals):
     }
     #max_evals = 3
 
+    #https://github.com/hyperopt/hyperopt/issues/267
     trials = Trials()
+    trialFilePath = os.path.join(LOG_DIR, "trials.p")
+    if os.path.exists(trialFilePath):
+        trials = pickle.load(open(trialFilePath, "rb"))
+
     if FLAGS.mongo_mode==1:
         trials = MongoTrials('mongo://localhost:27017/hyperopt/jobs', exp_key='exp{}'.format(uuid.uuid4()))
 
@@ -384,6 +398,8 @@ def hyperOptMain(max_evals):
     for trial in trials.trials:
         log_string(trial)
 
+    pickle.dump(trials, open(trialFilePath, "wb"))
+    
 
 def main(params=[]):
     gparams = dict()
@@ -406,6 +422,8 @@ def main(params=[]):
         #gparams['OPTIMIZER'] = params['optimizer']
         #gparams['DECAY_STEP']  = params['decay_step']
         #gparams['DECAY_RATE'] = params['decay_rate']
+
+        log_string("HyperOpt batch size selected:{}".format(params['batch_size']))
 
    # print("15:Batch size:{} and Num point:{}".format(gparams['BATCH_SIZE'],gparams['NUM_POINT']))
 
