@@ -15,7 +15,7 @@ Hyperparameter optimization using bayesian optimization on the popular Pointnet 
 
 
 ## Setup
-Copy Scripts/skfuzzy/controlsystem.py to <Anaconda Installation Folder>\Lib\site-packages\skfuzzy\control. This is required to use the get antecedent function custom implementation.
+All scripts can be run directly on google colab.
 
 ## Running the solution
 Please run the following commands on a terminal.
