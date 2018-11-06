@@ -14,8 +14,8 @@ from shutil import copy
 from hyperopt.mongoexp import MongoTrials
 import uuid
 
-#BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
-BASE_DIR = ''
+BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
+#BASE_DIR = ''
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(BASE_DIR, 'models'))
 sys.path.append(os.path.join(BASE_DIR, 'utils'))
@@ -39,25 +39,31 @@ parser.add_argument('--mongo_mode', type=int, default=0, help='HyperOpt Mongo Pa
 
 FLAGS = parser.parse_args()
 
+def checkFilesCreated(logfilepath):
+    '''Check that logging files are created properly in google colab with google drive '''
+    if not os.path.exists(logfilepath):
+        raise
+    else:
+        print ("Writing logs to:{}".format(logfilepath))
 
 def createLogDir(LOG_DIR):
     '''Always create a new logdir to prevent overwriting'''
-    if not os.path.exists(LOG_DIR):
-        os.makedirs(LOG_DIR)
+    new_log_dir = LOG_DIR
+    if not os.path.exists(new_log_dir):
+        os.makedirs(new_log_dir)
     else:
-        print('Log dir already exists! creating a new one..............')
+        print("Log dir:{} already exists! creating a new one.".format(new_log_dir))
         n = 0
         while True:
             n+=1
-            new_log_dir = LOG_DIR+'/'+str(n)
+            new_log_dir = os.path.join(LOG_DIR,str(n))
             if not os.path.exists(new_log_dir):
                 os.makedirs(new_log_dir)
                 print('New log dir:'+new_log_dir)
                 break
-        FLAGS.log_dir = new_log_dir
-        LOG_DIR = new_log_dir
-    return LOG_DIR
-
+        #FLAGS.log_dir = new_log_dir
+        #LOG_DIR = new_log_dir
+    return new_log_dir
 
 GPU_INDEX = FLAGS.gpu
 
@@ -70,12 +76,11 @@ TRAIN_FILES = provider.getDataFiles( \
 TEST_FILES = provider.getDataFiles(\
     os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/test_files.txt'))
 
-#LOG_DIR = FLAGS.log_dir
-#if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
-LOG_DIR = createLogDir(FLAGS.log_dir)
-
-LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
-LOG_FOUT.write(str(FLAGS)+'\n')
+LOG_DIR = FLAGS.log_dir
+#if not os.path.exists(LOG_DIR): raise #os.mkdir(LOG_DIR)
+LOG_DIR = createLogDir(LOG_DIR)
+LOG_FILE_PATH =os.path.join(LOG_DIR, 'log_train.txt')
+LOG_FOUT = open(LOG_FILE_PATH, 'w')
 
 
 def get_running_time(start_time):
@@ -85,6 +90,8 @@ def get_running_time(start_time):
 
 
 def log_string(out_str):
+    #if LOG_FOUT.closed:
+    LOG_FOUT = open(LOG_FILE_PATH, 'a+')
     LOG_FOUT.write(out_str+'\n')
     LOG_FOUT.flush()
     print(out_str)
@@ -172,9 +179,12 @@ def train(gparams):
         # Add summary writers
         #merged = tf.merge_all_summaries()
         merged = tf.summary.merge_all()
-        train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
-                                  sess.graph)
-        test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
+        trainFilePath = os.path.join(LOG_DIR, 'train')
+        train_writer = tf.summary.FileWriter(trainFilePath, sess.graph)
+        #checkFilesCreated(trainFilePath)
+        testFilePath = os.path.join(LOG_DIR, 'test')
+        test_writer = tf.summary.FileWriter(testFilePath)
+        #checkFilesCreated(testFilePath)
 
         # Init variables
         init = tf.global_variables_initializer()
@@ -207,6 +217,14 @@ def train(gparams):
             if epoch % 10 == 0:
                 save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"))
                 log_string("Model saved in file: %s" % save_path)
+                #force write to drive
+                LOG_FOUT.close()
+                test_writer.close()
+                train_writer.close()
+            
+
+        train_writer.close()
+        test_writer.close()
 
         return {
             'loss': mean_loss,
@@ -230,6 +248,8 @@ def train_one_epoch(sess, ops, train_writer,gparams):
     # Shuffle train files
     train_file_idxs = np.arange(0, len(TRAIN_FILES))
     np.random.shuffle(train_file_idxs)
+
+    train_writer.reopen()
     
     for fn in range(len(TRAIN_FILES)):
         log_string('----' + str(fn) + '-----')
@@ -252,12 +272,15 @@ def train_one_epoch(sess, ops, train_writer,gparams):
             # Augment batched point clouds by rotation and jittering
             rotated_data = provider.rotate_point_cloud(current_data[start_idx:end_idx, :, :])
             jittered_data = provider.jitter_point_cloud(rotated_data)
+            
             feed_dict = {ops['pointclouds_pl']: jittered_data,
                          ops['labels_pl']: current_label[start_idx:end_idx],
                          ops['is_training_pl']: is_training,}
             summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'],
                 ops['train_op'], ops['loss'], ops['pred']], feed_dict=feed_dict)
             train_writer.add_summary(summary, step)
+            train_writer.flush()
+
             pred_val = np.argmax(pred_val, 1)
             correct = np.sum(pred_val == current_label[start_idx:end_idx])
             total_correct += correct
@@ -272,6 +295,8 @@ def eval_one_epoch(sess, ops, test_writer, gparams):
     NUM_POINT = gparams['NUM_POINT']
     BATCH_SIZE =gparams['BATCH_SIZE']
     NUM_CLASSES = 40
+
+    test_writer.reopen()
 
     """ ops: dict mapping from string to tf ops """
     is_training = False
@@ -296,10 +321,12 @@ def eval_one_epoch(sess, ops, test_writer, gparams):
 
             feed_dict = {ops['pointclouds_pl']: current_data[start_idx:end_idx, :, :],
                          ops['labels_pl']: current_label[start_idx:end_idx],
-                         ops['is_training_pl']: is_training}
+                         ops['is_training_pl']: is_training}          
             summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'],
                 ops['loss'], ops['pred']], feed_dict=feed_dict)
             test_writer.add_summary(summary, step)
+            test_writer.flush()
+            
             pred_val = np.argmax(pred_val, 1)
             correct = np.sum(pred_val == current_label[start_idx:end_idx])
             total_correct += correct
@@ -396,7 +423,8 @@ def main(params=[]):
 
 
 if __name__ == "__main__":
-    print ("Starting the run with the mode:{}".format(FLAGS.run_mode))
+    print ("1:Starting the run with the mode:{}".format(FLAGS.run_mode))
+    log_string(str(FLAGS)+'\n')
     if FLAGS.run_mode == "normal":
         log_string ("Starting normal run")
         main()
@@ -404,4 +432,4 @@ if __name__ == "__main__":
         log_string ("Starting hyperopt")
         hyperOptMain()
     
-    LOG_FOUT.close()
+   # LOG_FOUT.close()
