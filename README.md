@@ -1,5 +1,5 @@
 # Bayesian Optimization of Pointnet
-Hyperparameter optimization using bayesian optimization on the popular Pointnet framework based on the works of [Revisiting Small Batch Training for Deep Neural Networks by Dominic Masters, Carlo Luschi](https://arxiv.org/abs/1804.07612) and [Algorithms for hyper-parameter optimization by James Bergstra, R´emi Bardenet, Yoshua Bengio, Bal´azs K´egl] (https://dl.acm.org/citation.cfm?id=2986743)
+Hyperparameter optimization using bayesian optimization on the popular Pointnet framework based on the works of [Revisiting Small Batch Training for Deep Neural Networks by Dominic Masters, Carlo Luschi](https://arxiv.org/abs/1804.07612) and [Algorithms for hyper-parameter optimization by James Bergstra, R´emi Bardenet, Yoshua Bengio, Bal´azs K´egl](https://dl.acm.org/citation.cfm?id=2986743)
 
 ## Prerequisites
 * Git
