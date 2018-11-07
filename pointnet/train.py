@@ -36,8 +36,9 @@ parser.add_argument('--decay_step', type=int, default=200000, help='Decay step f
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.7]')
 parser.add_argument('--run_mode', default='normal', help='Run mode [default: normal]')
 parser.add_argument('--mongo_mode', type=int, default=0, help='HyperOpt Mongo Parallel mode [default: 0]')
-parser.add_argument('--max_evals', type=int, default=3, help='HyperOpt max evaluations to run [default: 3]')
+parser.add_argument('--max_evals', type=int, default=1, help='HyperOpt max evaluations to run [default: 1]')
 parser.add_argument('--model_path', default='', help='model checkpoint file path to restore interrupted training [default: blank]')
+parser.add_argument('--max_trials', type=int, default=10, help='HyperOpt max trials to run [default: 10]')
 
 
 FLAGS = parser.parse_args()
@@ -361,7 +362,15 @@ def eval_one_epoch(sess, ops, test_writer, gparams):
     return mean_loss, accuracy, avg_class_accuracy
 
 
-def hyperOptMain(max_evals):
+def summarizeTrials(best,trials):
+    ''' Save the result to file'''
+    log_string ("Best param found:{}".format(best))
+    for trial in trials.trials:
+        log_string(trial)
+    #log_string("\n\nTrials is:", np.sort(np.array([x for x in trials.losses() if x is not None])))
+ 
+
+def hyperOptMain(max_evals, max_trials):
     '''Run the training using hyper optimization'''
     #('--num_point', type=int, default=1024, help='Point Number [256/512/1024/2048] [default: 1024]')
     #('--max_epoch', type=int, default=250, help='Epoch to run [default: 250]')
@@ -390,19 +399,17 @@ def hyperOptMain(max_evals):
     if FLAGS.mongo_mode==1:
         trials = MongoTrials('mongo://localhost:27017/hyperopt/jobs', exp_key='exp{}'.format(uuid.uuid4()))
 
+    for i in range(max_trials):
+        best = fmin(main,
+            space=space,
+            algo=tpe.suggest,
+            max_evals=max_evals,
+            trials=trials)
 
-    best = fmin(main,
-        space=space,
-        algo=tpe.suggest,
-        max_evals=max_evals,
-        trials=trials)
+        summarizeTrials(best, trials)
 
-    log_string (best)
 
-    for trial in trials.trials:
-        log_string(trial)
-
-    pickle.dump(trials, open(trialFilePath, "wb"))
+        pickle.dump(trials, open(trialFilePath, "wb"))
     
 
 def main(params=[]):
@@ -456,6 +463,6 @@ if __name__ == "__main__":
         main()
     else:
         log_string ("Starting hyperopt")
-        hyperOptMain(FLAGS.max_evals)
+        hyperOptMain(FLAGS.max_evals, FLAGS.max_trials)
     
    # LOG_FOUT.close()
