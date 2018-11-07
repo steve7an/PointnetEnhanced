@@ -13,6 +13,7 @@ from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from shutil import copy
 from hyperopt.mongoexp import MongoTrials
 import uuid
+import json
 
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
 #BASE_DIR = ''
@@ -362,11 +363,12 @@ def eval_one_epoch(sess, ops, test_writer, gparams):
     return mean_loss, accuracy, avg_class_accuracy
 
 
-def summarizeTrials(best,trials):
+def summarizeTrials(i, best,trials):
     ''' Save the result to file'''
-    log_string ("Best param found:{}".format(best))
+    log_string ("Run {} - Best param found:{}".format(i, best))
     for trial in trials.trials:
-        log_string(trial)
+        log_string (str(trial))
+    #log_string(trials.losses())
     #log_string("\n\nTrials is:", np.sort(np.array([x for x in trials.losses() if x is not None])))
  
 
@@ -406,11 +408,9 @@ def hyperOptMain(max_evals, max_trials):
             max_evals=max_evals,
             trials=trials)
 
-        summarizeTrials(best, trials)
-
-
         pickle.dump(trials, open(trialFilePath, "wb"))
-    
+        summarizeTrials(i, best, trials)
+        
 
 def main(params=[]):
     gparams = dict()
