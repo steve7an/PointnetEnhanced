@@ -245,9 +245,11 @@ def train(gparams):
         return {
             'loss': mean_loss,
             'status': STATUS_OK,
+            'accuracy': accuracy, 
+            'avg_class_accuracy': avg_class_accuracy,
             # -- store other results like this
             'eval_time': time.time(),
-            'Evaluate other params': {'accuracy': accuracy, 'avg_class_accuracy': avg_class_accuracy},
+            'RunParams': {'optimizer':OPTIMIZER, 'batch_size':BATCH_SIZE, 'num_point':NUM_POINT,'momentum':MOMENTUM,'max_epoch':MAX_EPOCH},
             # -- attachments are handled differently
             #'attachments':
             #{'time_module': pickle.dumps(time.time)}
@@ -395,20 +397,26 @@ def hyperOptMain(max_evals, max_trials):
     #https://github.com/hyperopt/hyperopt/issues/267
     trials = Trials()
     trialFilePath = os.path.join(LOG_DIR, "trials.p")
-    if os.path.exists(trialFilePath):
-        trials = pickle.load(open(trialFilePath, "rb"))
 
     if FLAGS.mongo_mode==1:
         trials = MongoTrials('mongo://localhost:27017/hyperopt/jobs', exp_key='exp{}'.format(uuid.uuid4()))
 
+    
     for i in range(max_trials):
+        if os.path.exists(trialFilePath):
+            with open(trialFilePath, "rb") as f:
+                trials = pickle.load(f)
+                log_string ("Loaded trials.")
+
         best = fmin(main,
             space=space,
             algo=tpe.suggest,
             max_evals=max_evals,
             trials=trials)
 
-        pickle.dump(trials, open(trialFilePath, "wb"))
+        with open(trialFilePath, "wb") as w:
+            pickle.dump(trials, w)
+            log_string ("Written trials.")
         summarizeTrials(i, best, trials)
         
 
