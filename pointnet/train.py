@@ -417,11 +417,14 @@ def hyperOptMain(max_evals, max_trials):
 
     # https://github.com/hyperopt/hyperopt-sklearn/issues/80
     # Changing the number of initial evaluations to 1 instead of the default 20 runs
-    for i in range(max_trials):
+    eval_runs = 0
+    for i in range(1,max_trials+1):
+        eval_runs = max_evals * i + prevTrialsCount
+        #print ("max:{}, i:{} and prev count:{}".format(max_evals,i,prevTrialsCount))
         best = fmin(main,
             space=space,
-            algo=partial(tpe.suggest, n_startup_jobs=1), #tpe.suggest,
-            max_evals=(max_evals*i) + prevTrialsCount, #increase the eval count otherwise only previous runs will be used
+            algo= tpe.suggest,  #partial(tpe.suggest, n_startup_jobs=1), #tpe.suggest,
+            max_evals= eval_runs, #increase the eval count otherwise only previous runs will be used
             trials=trials)
 
         summarizeTrials(i, best, trials)
