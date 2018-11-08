@@ -13,6 +13,7 @@ from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from shutil import copy
 from hyperopt.mongoexp import MongoTrials
 import uuid
+from functools import partial
 import json
 
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
@@ -40,7 +41,7 @@ parser.add_argument('--mongo_mode', type=int, default=0, help='HyperOpt Mongo Pa
 parser.add_argument('--max_evals', type=int, default=1, help='HyperOpt max evaluations to run [default: 1]')
 parser.add_argument('--model_path', default='', help='model checkpoint file path to restore interrupted training [default: blank]')
 parser.add_argument('--max_trials', type=int, default=10, help='HyperOpt max trials to run [default: 10]')
-
+parser.add_argument('--trials_path', default='', help='HyperOpt saved trials file to be loaded [default: blank]')
 
 FLAGS = parser.parse_args()
 
@@ -75,6 +76,7 @@ GPU_INDEX = FLAGS.gpu
 #MAX_NUM_POINT = 2048
 HOSTNAME = socket.gethostname()
 MODEL_FILE_NAME = "model.ckpt"
+TRIALS_FILE_NAME = "trials.p"
 
 # ModelNet40 official train/test split
 TRAIN_FILES = provider.getDataFiles( \
@@ -89,6 +91,7 @@ LOG_FILE_PATH =os.path.join(LOG_DIR, 'log_train.txt')
 LOG_FOUT = open(LOG_FILE_PATH, 'w')
 
 MODEL_PATH = FLAGS.model_path
+TRIALS_PATH = FLAGS.trials_path
 
 
 def get_running_time(start_time):
@@ -189,8 +192,9 @@ def train(gparams):
             metaFilePath = os.path.join(MODEL_PATH,"{}.meta".format(MODEL_FILE_NAME))
             #saver = tf.train.import_meta_graph(metaFilePath)
             #saver.restore(sess, os.path.join(MODEL_PATH,MODEL_FILE_NAME))
-            saver.restore(sess, tf.train.latest_checkpoint(MODEL_PATH))
-            log_string("Model restored.")
+            if os.path.exists(metaFilePath):
+                saver.restore(sess, tf.train.latest_checkpoint(MODEL_PATH))
+                log_string("Model restored.")
             
         # Add summary writers
         #merged = tf.merge_all_summaries()
@@ -395,29 +399,36 @@ def hyperOptMain(max_evals, max_trials):
     #max_evals = 3
 
     #https://github.com/hyperopt/hyperopt/issues/267
+    # check if any trials file are given to continue hyperopt on
     trials = Trials()
-    trialFilePath = os.path.join(LOG_DIR, "trials.p")
-
-    if FLAGS.mongo_mode==1:
-        trials = MongoTrials('mongo://localhost:27017/hyperopt/jobs', exp_key='exp{}'.format(uuid.uuid4()))
-
-    
-    for i in range(max_trials):
+    if TRIALS_PATH:
+        trialFilePath = os.path.join(TRIALS_PATH, TRIALS_FILE_NAME)
         if os.path.exists(trialFilePath):
             with open(trialFilePath, "rb") as f:
                 trials = pickle.load(f)
                 log_string ("Loaded trials.")
+    #otherwise create a new one in the log directory
+    prevTrialsCount = len(trials)
+    if not prevTrialsCount:
+        trialFilePath = os.path.join(LOG_DIR, TRIALS_FILE_NAME)
 
+    if FLAGS.mongo_mode==1:
+        trials = MongoTrials('mongo://localhost:27017/hyperopt/jobs', exp_key='exp{}'.format(uuid.uuid4()))
+
+    # https://github.com/hyperopt/hyperopt-sklearn/issues/80
+    # Changing the number of initial evaluations to 1 instead of the default 20 runs
+    for i in range(max_trials):
         best = fmin(main,
             space=space,
-            algo=tpe.suggest,
-            max_evals=max_evals,
+            algo=partial(tpe.suggest, n_startup_jobs=1), #tpe.suggest,
+            max_evals=(max_evals*i) + prevTrialsCount, #increase the eval count otherwise only previous runs will be used
             trials=trials)
 
+        summarizeTrials(i, best, trials)
         with open(trialFilePath, "wb") as w:
             pickle.dump(trials, w)
-            log_string ("Written trials.")
-        summarizeTrials(i, best, trials)
+            log_string ("Written trials on run {}.".format(i))
+
         
 
 def main(params=[]):
