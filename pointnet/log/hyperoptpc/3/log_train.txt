@@ -1,7 +1,0 @@
-Namespace(batch_size=32, decay_rate=0.7, decay_step=200000, gpu=0, learning_rate=0.001, log_dir='log\\hyperoptpc', max_epoch=10, max_evals=25, model='pointnet_cls', model_path='log\\hyperoptpc\\model.ckpt', momentum=0.9, mongo_mode=0, num_point=1024, optimizer='adam', run_mode="'hyperopt'")
-
-Starting hyperopt
-HyperOpt batch size selected:16
-Model restored.
-**** EPOCH 000 ****
-----0-----
